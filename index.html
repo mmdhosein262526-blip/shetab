@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>شتاب — رانندگی از داخل کابین</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden;background:#0b0c0f;touch-action:none;overscroll-behavior:none;
+    font-family:Vazirmatn,system-ui,sans-serif;-webkit-user-select:none;user-select:none}
+  #c{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hide{display:none!important}
+
+  /* ---------- HUD ---------- */
+  .chip{position:fixed;z-index:5;pointer-events:none;text-align:center;color:#f4eee2;
+    background:rgba(10,11,15,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px 16px}
+  #speedChip{top:12px;right:14px;min-width:118px}
+  #speedVal{font-size:30px;font-weight:800;line-height:1.15}
+  #speedChip .lbl{font-size:11px;opacity:.65}
+  #subVal{font-size:12px;opacity:.85;margin-top:4px;border-top:1px solid rgba(255,255,255,.1);padding-top:4px}
+  #scoreChip{top:12px;left:14px;min-width:118px}
+  #scoreVal{font-size:24px;font-weight:800;line-height:1.3}
+  #scoreChip .lbl{font-size:11px;opacity:.65}
+  #bestLine{font-size:11.5px;opacity:.75;margin-top:3px}
+
+  #muteBtn{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:30;width:42px;height:42px;
+    border-radius:12px;background:rgba(10,11,15,.55);border:1px solid rgba(255,255,255,.12);
+    backdrop-filter:blur(10px);color:#e8e2d4;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+  /* بازخورد لمس دو سمت صفحه */
+  .edge{position:fixed;top:28%;bottom:28%;width:14px;z-index:4;pointer-events:none;opacity:0;transition:opacity .15s}
+  #edgeL{left:0;background:rgba(255,255,255,.16);border-radius:0 8px 8px 0}
+  #edgeR{right:0;background:rgba(255,255,255,.16);border-radius:8px 0 0 8px}
+  .edge.on{opacity:1}
+
+  /* شمارش معکوس و پیام‌ها */
+  #count{position:fixed;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #countN{font-size:110px;font-weight:900;color:#f5a524;opacity:0;text-shadow:0 4px 26px rgba(0,0,0,.6)}
+  #countN.pop{animation:pop .95s ease forwards}
+  @keyframes pop{0%{transform:scale(1.7);opacity:0}18%{transform:scale(1);opacity:1}75%{opacity:1}100%{opacity:0}}
+  #toast{position:fixed;top:17%;left:50%;transform:translateX(-50%);z-index:15;pointer-events:none;
+    font-weight:800;font-size:20px;color:#ffd58a;text-shadow:0 2px 12px rgba(0,0,0,.65);opacity:0;transition:opacity .2s}
+  #toast.show{opacity:1}
+
+  /* ---------- روکش‌ها ---------- */
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+    background:rgba(7,8,11,.5);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+  .panel{background:rgba(13,14,19,.8);border:1px solid rgba(255,255,255,.12);border-radius:22px;
+    padding:28px 36px;text-align:center;max-width:410px;width:calc(100% - 44px)}
+  h1{font-size:46px;font-weight:900;color:#f6f1e6;line-height:1.2}
+  .bar{width:56px;height:4px;background:#f5a524;border-radius:2px;margin:10px auto 14px}
+  .sub{font-size:13.5px;color:#b9b2a4;margin-bottom:18px}
+  .ctrls{display:flex;gap:10px;justify-content:center;margin-bottom:20px}
+  .ctrl{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);
+    border-radius:14px;padding:12px 8px;font-size:11.5px;color:#cfc8ba;line-height:1.7}
+  .ctrl svg{display:block;margin:0 auto 8px}
+  .btn{pointer-events:auto;background:#f5a524;color:#20150a;border:none;font-family:inherit;font-size:18px;
+    font-weight:800;padding:13px 46px;border-radius:14px;cursor:pointer;transition:transform .1s}
+  .btn:active{transform:scale(.95)}
+  .hint{margin-top:15px;font-size:12px;color:#8f887b;line-height:2}
+  .stats{margin:4px 0 20px;display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;justify-content:space-between;background:rgba(255,255,255,.05);
+    border-radius:10px;padding:9px 14px;font-size:14px;color:#cfc8ba}
+  .row b{color:#f5a524}
+  #newRec{display:none;background:#f5a524;color:#20150a;font-weight:800;font-size:12px;
+    border-radius:20px;padding:4px 16px;margin:0 auto 14px;width:max-content}
+
+  /* حالت عمودی */
+  #portrait{position:fixed;inset:0;z-index:50;background:#0b0c0f;display:none;flex-direction:column;
+    align-items:center;justify-content:center;gap:20px;color:#e8e2d4;font-size:16px;font-weight:700}
+  @media (orientation:portrait){#portrait{display:flex}}
+  #portrait svg{animation:rot 1.5s ease-in-out infinite alternate}
+  @keyframes rot{from{transform:rotate(0)}to{transform:rotate(-90deg)}}
+
+  /* بارگذاری */
+  #loader{position:fixed;inset:0;z-index:60;background:#0b0c0f;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;color:#cfc8ba;font-size:14px}
+  .spin{width:42px;height:42px;border-radius:50%;border:3px solid rgba(255,255,255,.12);
+    border-top-color:#f5a524;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- HUD -->
+<div class="chip" id="speedChip">
+  <div id="speedVal">۰</div><div class="lbl">کیلومتر بر ساعت</div>
+  <div id="subVal">کیلومتر: ۰</div>
+</div>
+<div class="chip" id="scoreChip">
+  <div id="scoreVal">۰</div><div class="lbl">امتیاز</div>
+  <div id="bestLine">رکورد: ۰</div>
+</div>
+<button id="muteBtn" title="صدا">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11 5 6 9H3v6h3l5 4z"/>
+    <path class="w1" d="M15.5 8.5a5 5 0 0 1 0 7"/>
+    <path class="w2" d="M18.5 5.5a9.5 9.5 0 0 1 0 13"/>
+    <line class="x1" x1="16" y1="9" x2="22" y2="15" style="display:none"/>
+    <line class="x2" x1="22" y1="9" x2="16" y2="15" style="display:none"/>
+  </svg>
+</button>
+<div class="edge" id="edgeL"></div><div class="edge" id="edgeR"></div>
+<div id="count"><span id="countN"></span></div>
+<div id="toast"></div>
+
+<!-- منوی شروع -->
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>شتاب</h1>
+    <div class="bar"></div>
+    <div class="sub">رانندگی از داخل کابین — جاده‌ای بی‌پایان در غروب</div>
+    <div class="ctrls">
+      <div class="ctrl">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f5a524" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+        نگه‌داشتن سمت چپ<br>فرمان به چپ
+      </div>
+      <div class="ctrl">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f5a524" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+        نگه‌داشتن سمت راست<br>فرمان به راست
+      </div>
+    </div>
+    <button class="btn" id="startBtn">شروع</button>
+    <div class="hint">انگشتت را روی هر سمت صفحه نگه دار؛ فرمان می‌چرخد و ماشین نرم به آن سمت می‌رود.<br>از ماشین‌های جلویی سبقت بگیر؛ برخورد یعنی پایان مسیر.</div>
+  </div>
+</div>
+
+<!-- پایان بازی -->
+<div id="over" class="overlay hide">
+  <div class="panel">
+    <div id="newRec">رکورد جدید!</div>
+    <h1 style="font-size:34px">تصادف!</h1>
+    <div class="bar"></div>
+    <div class="stats">
+      <div class="row"><span>امتیاز</span><b id="stScore"></b></div>
+      <div class="row"><span>مسافت</span><b id="stDist"></b></div>
+      <div class="row"><span>بیشترین سرعت</span><b id="stSpeed"></b></div>
+      <div class="row"><span>سبقتِ نزدیک</span><b id="stNear"></b></div>
+    </div>
+    <button class="btn" id="againBtn">بازی دوباره</button>
+  </div>
+</div>
+
+<!-- حالت عمودی -->
+<div id="portrait">
+  <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#f5a524" stroke-width="1.6"><rect x="7" y="3" width="10" height="18" rx="2"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/></svg>
+  لطفاً گوشی را افقی بگیر
+</div>
+
+<!-- بارگذاری -->
+<div id="loader"><div class="spin"></div>در حال آماده‌سازی کابین…</div>
+
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+/* ============ ابزارها ============ */
+const $=id=>document.getElementById(id);
+const rand=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const damp=(c,t,r,dt)=>c+(t-c)*(1-Math.exp(-r*dt));
+const faNum=n=>Number(n).toLocaleString('fa-IR');
+const faNum1=n=>Number(n).toLocaleString('fa-IR',{maximumFractionDigits:1});
+const vib=ms=>{try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}};
+
+/* ============ رندرر و صحنه ============ */
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.06;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate=false;
+renderer.domElement.id='c';
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0xead2a8,70,330);
+const camera=new THREE.PerspectiveCamera(76,innerWidth/innerHeight,0.05,1200);
+
+const pmrem=new THREE.PMREMGenerator(renderer);
+scene.environment=pmrem.fromScene(new RoomEnvironment(),0.04).texture;
+
+/* آسمان با شیدر (گرادیان طبیعی غروب + خورشید) */
+const sunDir=new THREE.Vector3(-0.35,0.30,-0.88).normalize();
+const sky=new THREE.Mesh(new THREE.SphereGeometry(900,32,16),new THREE.ShaderMaterial({
+  side:THREE.BackSide,depthWrite:false,fog:false,
+  uniforms:{
+    sunDir:{value:sunDir},
+    cTop:{value:new THREE.Color(0x3f74a8)},
+    cMid:{value:new THREE.Color(0xcfe0ea)},
+    cBot:{value:new THREE.Color(0xf6c890)},
+    cSun:{value:new THREE.Color(0xffd9a3)}
+  },
+  vertexShader:`varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+  fragmentShader:`varying vec3 vDir;uniform vec3 sunDir,cTop,cMid,cBot,cSun;
+  void main(){
+    float h=clamp(vDir.y,-1.,1.);
+    vec3 col=mix(cBot,cMid,smoothstep(-0.02,0.12,h));
+    col=mix(col,cTop,smoothstep(0.08,0.6,h));
+    col=mix(col,cBot*0.88,smoothstep(0.0,-0.25,h));
+    float s=max(dot(vDir,sunDir),0.);
+    col+=cSun*(pow(s,900.)*3.0+pow(s,18.)*0.35);
+    gl_FragColor=vec4(col,1.);
+  }`
+}));
+scene.add(sky);
+
+/* نورها */
+const dir=new THREE.DirectionalLight(0xffd7a6,2.6);
+dir.position.copy(sunDir).multiplyScalar(180);
+dir.target.position.set(0,0,-30); scene.add(dir.target);
+dir.castShadow=true;
+dir.shadow.mapSize.set(1024,1024);
+Object.assign(dir.shadow.camera,{left:-80,right:80,top:80,bottom:-80,near:20,far:420});
+dir.shadow.bias=-0.0004; dir.shadow.normalBias=0.9;
+scene.add(dir);
+scene.add(new THREE.HemisphereLight(0xbcd2e8,0x9a7b52,0.8));
+
+/* ============ بافت‌های بوم (Canvas) ============ */
+function makeCanvas(w,h,draw){
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  const x=c.getContext('2d');draw(x,w,h);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;
+  return{tex:t,ctx:x,canvas:c};
+}
+
+/* آسفالت */
+const road=makeCanvas(256,512,(x,w,h)=>{
+  x.fillStyle='#34373c';x.fillRect(0,0,w,h);
+  for(let i=0;i<1500;i++){x.fillStyle=Math.random()>.5?'rgba(255,255,255,.045)':'rgba(0,0,0,.06)';
+    x.fillRect(Math.random()*w,Math.random()*h,1.6,1.6);}
+  x.fillStyle='#d9d5c6';x.fillRect(19,0,5,h);x.fillRect(w-24,0,5,h);
+  x.fillStyle='#e8e4d6';x.fillRect(89,10,4,108);x.fillRect(163,10,4,108);
+});
+road.tex.wrapS=road.tex.wrapT=THREE.RepeatWrapping;
+road.tex.repeat.set(1,40);
+road.tex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+
+/* زمین بیابانی */
+const ground=makeCanvas(256,256,(x,w,h)=>{
+  x.fillStyle='#b3945f';x.fillRect(0,0,w,h);
+  for(let i=0;i<2400;i++){
+    x.fillStyle=Math.random()>.5?'rgba(255,255,255,.05)':'rgba(0,0,0,.06)';
+    x.fillRect(Math.random()*w,Math.random()*h,1.7,1.7);}
+  for(let i=0;i<40;i++){x.fillStyle='rgba(110,95,60,.5)';
+    x.fillRect(Math.random()*w,Math.random()*h,3,2);}
+});
+ground.tex.wrapS=ground.tex.wrapT=THREE.RepeatWrapping;
+ground.tex.repeat.set(30,30);
+ground.tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+
+/* دریچه تهویه، نوار سایه‌بان، نشان فرمان */
+const vent=makeCanvas(64,32,(x,w,h)=>{
+  x.fillStyle='#0a0b0e';x.fillRect(0,0,w,h);
+  x.fillStyle='#26292f';for(let i=0;i<3;i++)x.fillRect(6,6+i*8,w-12,3);
+});
+const band=makeCanvas(128,32,(x,w,h)=>{
+  const g=x.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,'rgba(28,48,78,.85)');g.addColorStop(.55,'rgba(28,48,78,.25)');g.addColorStop(1,'rgba(28,48,78,0)');
+  x.fillStyle=g;x.fillRect(0,0,w,h);
+});
+const emb=makeCanvas(64,64,x=>{
+  x.fillStyle='#101114';x.beginPath();x.arc(32,32,30,0,7);x.fill();
+  x.strokeStyle='#f5a524';x.lineWidth=4;x.beginPath();x.arc(32,32,26,0,7);x.stroke();
+  x.fillStyle='#f5a524';x.font='900 30px Vazirmatn, sans-serif';
+  x.textAlign='center';x.textBaseline='middle';x.fillText('ش',32,34);
+});
+
+const cluster=makeCanvas(512,224,()=>{});
+const screenT=makeCanvas(288,192,()=>{});
+
+/* ============ دنیا: جاده، گاردریل، درخت، ساختمان، کوه ============ */
+const roadMesh=new THREE.Mesh(new THREE.PlaneGeometry(12.4,480),
+  new THREE.MeshStandardMaterial({map:road.tex,roughness:.94}));
+roadMesh.rotation.x=-Math.PI/2;roadMesh.position.set(0,0.01,-200);
+roadMesh.receiveShadow=true;scene.add(roadMesh);
+
+const groundMesh=new THREE.Mesh(new THREE.PlaneGeometry(560,520),
+  new THREE.MeshStandardMaterial({map:ground.tex,roughness:1}));
+groundMesh.rotation.x=-Math.PI/2;groundMesh.position.set(0,-0.02,-180);
+groundMesh.receiveShadow=true;scene.add(groundMesh);
+
+const railMat=new THREE.MeshStandardMaterial({color:0xaeb6bc,metalness:.85,roughness:.4,envMapIntensity:.6});
+for(const s of[-1,1]){
+  const r=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.34,480),railMat);
+  r.position.set(6.5*s,0.55,-200);r.castShadow=true;scene.add(r);
+}
+
+function coloredGeo(geo,hex){
+  const c=new THREE.Color(hex),n=geo.attributes.position.count,a=new Float32Array(n*3);
+  for(let i=0;i<n;i++){a[i*3]=c.r;a[i*3+1]=c.g;a[i*3+2]=c.b;}
+  geo.setAttribute('color',new THREE.BufferAttribute(a,3));return geo;
+}
+
+/* پایه‌های گاردریل */
+const posts=new THREE.InstancedMesh(new THREE.BoxGeometry(0.1,0.62,0.1),
+  new THREE.MeshStandardMaterial({color:0x6f767c,metalness:.6,roughness:.5}),220);
+posts.castShadow=true;scene.add(posts);
+const postData=[];for(let i=0;i<220;i++)postData.push({side:i%2?1:-1,base:(i>>1)*4.4});
+
+/* درخت‌ها (تنه + تاج در یک هندسه) */
+const trunk=coloredGeo(new THREE.CylinderGeometry(0.09,0.16,1.5,6),0x5d4530);trunk.translate(0,0.75,0);
+const crown=coloredGeo(new THREE.ConeGeometry(1.15,2.9,7),0x3c6b40);crown.translate(0,2.9,0);
+const trees=new THREE.InstancedMesh(mergeGeometries([trunk,crown]),
+  new THREE.MeshStandardMaterial({vertexColors:true,roughness:.9}),64);
+trees.castShadow=true;scene.add(trees);
+const treeData=[];for(let i=0;i<64;i++)
+  treeData.push({side:Math.random()<.5?-1:1,off:rand(2.5,16),base:rand(0,484),s:rand(.75,1.7),ry:rand(0,6.28)});
+
+/* ساختمان‌های حاشیه شهر */
+const bGeo=new THREE.BoxGeometry(1,1,1);bGeo.translate(0,0.5,0);
+const builds=new THREE.InstancedMesh(bGeo,new THREE.MeshStandardMaterial({color:0xffffff,roughness:.8}),34);
+scene.add(builds);
+const bPal=[0x8f8676,0x77808a,0x9b9080,0x6d7580,0x867a69,0x9a9484];
+const bData=[],tmpC=new THREE.Color();
+for(let i=0;i<34;i++){
+  bData.push({side:Math.random()<.5?-1:1,off:rand(0,80),base:rand(0,484),w:rand(7,15),h:rand(5,24),d:rand(7,14)});
+  builds.setColorAt(i,tmpC.setHex(bPal[(Math.random()*bPal.length)|0]));
+}
+builds.instanceColor.needsUpdate=true;
+
+/* کوه‌های دوردست */
+const mtnMat=new THREE.MeshStandardMaterial({color:0x74838f,roughness:1,flatShading:true});
+for(let i=0;i<8;i++){
+  const h=rand(30,85);
+  const m=new THREE.Mesh(new THREE.ConeGeometry(rand(45,120),h,5),mtnMat);
+  m.position.set((i%2?1:-1)*rand(70,320),h/2-3,-rand(250,350));
+  m.rotation.y=rand(0,3);scene.add(m);
+}
+
+/* ============ کابین ماشین ============ */
+const rig=new THREE.Group();scene.add(rig);
+const cockpit=new THREE.Group();rig.add(cockpit);
+const exterior=new THREE.Group();rig.add(exterior);
+
+const M={
+  plastic:new THREE.MeshStandardMaterial({color:0x16171b,roughness:.88,envMapIntensity:.25}),
+  plastic2:new THREE.MeshStandardMaterial({color:0x0e0f12,roughness:.95,envMapIntensity:.15}),
+  leather:new THREE.MeshStandardMaterial({color:0x5a3d2b,roughness:.75,envMapIntensity:.2}),
+  wheelLeather:new THREE.MeshStandardMaterial({color:0x221913,roughness:.6,envMapIntensity:.3}),
+  trim:new THREE.MeshStandardMaterial({color:0xd8dadd,metalness:.9,roughness:.32,envMapIntensity:.8}),
+  paint:new THREE.MeshStandardMaterial({color:0x9e1f2a,metalness:.72,roughness:.34,envMapIntensity:1.1}),
+};
+const glassMat=new THREE.MeshBasicMaterial({color:0xaac4d4,transparent:true,opacity:.05,depthWrite:false});
+
+function bx(parent,mat,w,h,d,x,y,z,rx=0,ry=0,rz=0){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  m.position.set(x,y,z);m.rotation.set(rx,ry,rz);parent.add(m);return m;
+}
+function pl(parent,mat,w,h,x,y,z,rx=0,ry=0,rz=0){
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),mat);
+  m.position.set(x,y,z);m.rotation.set(rx,ry,rz);parent.add(m);return m;
+}
+function cyl(parent,mat,r1,r2,h,x,y,z,rx=0,seg=16){
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg),mat);
+  m.position.set(x,y,z);m.rotation.x=rx;parent.add(m);return m;
+}
+
+/* پوسته داخل */
+bx(cockpit,M.plastic2,1.9,.06,2.6, 0,.32,.1);
+bx(cockpit,M.plastic,1.94,.06,1.6, 0,1.53,-.1);
+bx(cockpit,M.plastic,1.98,.11,.18, 0,1.50,-.56);
+bx(cockpit,M.plastic,.10,.09,.70, -.93,1.25,-.80, .675);
+bx(cockpit,M.plastic,.10,.09,.70,  .93,1.25,-.80, .675);
+bx(cockpit,M.plastic,.09,.60,.10, -.945,1.22,.55);
+bx(cockpit,M.plastic,.09,.60,.10,  .945,1.22,.55);
+pl(cockpit,glassMat,1.76,.62, 0,1.25,-.795, .675);           // شیشه جلو
+pl(cockpit,new THREE.MeshBasicMaterial({map:band.tex,transparent:true,depthWrite:false}),1.76,.16, 0,1.435,-.745, .675);
+
+/* داشبورد دو رنگ */
+bx(cockpit,M.plastic,1.9,.05,.55, 0,.985,-.93, -.05);
+bx(cockpit,M.leather,1.9,.045,.12, 0,1.01,-.71);
+bx(cockpit,M.plastic,1.9,.36,.06, 0,.80,-.70, -.16);
+bx(cockpit,M.trim,1.86,.015,.012, 0,.685,-.668, -.16);
+
+/* خوشه ابزار (پشت فرمان) */
+const clusterMat=new THREE.MeshBasicMaterial({map:cluster.tex,toneMapped:false});
+bx(cockpit,M.plastic2,.46,.08,.22, -.37,1.085,-.80, .15);
+bx(cockpit,M.plastic2,.38,.17,.03, -.37,1.005,-.78, -.35);
+pl(cockpit,clusterMat,.33,.14, -.37,1.005,-.762, -.35);
+
+/* ستون و فرمان */
+cyl(cockpit,M.plastic2,.028,.028,.26, -.37,.90,-.585, -1.27);
+const wheelG=new THREE.Group();wheelG.position.set(-.37,.86,-.47);wheelG.rotation.x=-.32;cockpit.add(wheelG);
+const wheelSpin=new THREE.Group();wheelG.add(wheelSpin);
+wheelSpin.add(new THREE.Mesh(new THREE.TorusGeometry(.185,.021,14,44),M.wheelLeather));
+bx(wheelSpin,M.plastic,.135,.03,.026, -.105,0,.012);
+bx(wheelSpin,M.plastic,.135,.03,.026,  .105,0,.012);
+bx(wheelSpin,M.plastic,.03,.14,.026, 0,-.105,.012);
+cyl(wheelSpin,M.plastic2,.052,.055,.05, 0,0,0, Math.PI/2);
+cyl(wheelSpin,M.trim,.011,.011,.012, -.10,0,.028, Math.PI/2);
+cyl(wheelSpin,M.trim,.011,.011,.012,  .10,0,.028, Math.PI/2);
+pl(wheelSpin,new THREE.MeshBasicMaterial({map:emb.tex,toneMapped:false,transparent:true}),.052,.052, 0,0,.028);
+
+/* کنسول وسط، نمایشگر، دریچه‌ها، دنده */
+bx(cockpit,M.plastic2,.42,.5,1.3, 0,.55,-.05);
+bx(cockpit,M.plastic,.44,.03,1.3, 0,.815,-.05);
+bx(cockpit,M.plastic2,.36,.245,.03, 0,.99,-.655, -.22);
+const screenMat=new THREE.MeshBasicMaterial({map:screenT.tex,toneMapped:false});
+pl(cockpit,screenMat,.30,.19, 0,.985,-.637, -.22);
+const ventMat=new THREE.MeshBasicMaterial({map:vent.tex});
+bx(cockpit,ventMat,.16,.075,.02, -.66,.88,-.668, -.16);
+bx(cockpit,ventMat,.16,.075,.02,  .66,.88,-.668, -.16);
+bx(cockpit,M.plastic2,.12,.05,.18, -.05,.845,-.08);
+cyl(cockpit,M.plastic2,.05,.075,.06, -.05,.86,-.08);
+cyl(cockpit,M.trim,.014,.014,.13, -.05,.955,-.075, .12);
+const knob=new THREE.Mesh(new THREE.SphereGeometry(.035,14,12),M.leather);
+knob.position.set(-.05,1.03,-.07);cockpit.add(knob);
+const cup=new THREE.Mesh(new THREE.TorusGeometry(.033,.007,8,20),M.plastic2);
+cup.rotation.x=Math.PI/2;cup.position.set(.10,.832,-.38);cockpit.add(cup);
+
+/* درها */
+bx(cockpit,M.plastic,.07,.52,2.0, -.965,.72,.15);
+bx(cockpit,M.plastic,.07,.52,2.0,  .965,.72,.15);
+bx(cockpit,M.leather,.13,.05,.45, -.885,.86,.28);
+bx(cockpit,M.leather,.13,.05,.45,  .885,.86,.28);
+bx(cockpit,M.trim,.012,.02,.8, -.925,.66,.15);
+bx(cockpit,M.trim,.012,.02,.8,  .925,.66,.15);
+pl(cockpit,glassMat,2.0,.55, -.945,1.24,-.05, 0, Math.PI/2);
+pl(cockpit,glassMat,2.0,.55,  .945,1.24,-.05, 0,-Math.PI/2);
+
+/* آینه وسط (تصویر زنده)، آفتاب‌گیر */
+const mirrorRT=new THREE.WebGLRenderTarget(256,96);
+mirrorRT.texture.colorSpace=THREE.SRGBColorSpace;
+mirrorRT.texture.wrapS=THREE.RepeatWrapping;
+mirrorRT.texture.repeat.x=-1;
+const mirrorMat=new THREE.MeshBasicMaterial({map:mirrorRT.texture,toneMapped:false});
+bx(cockpit,M.plastic2,.03,.09,.02, 0,1.455,-.575);
+bx(cockpit,M.plastic2,.31,.085,.035, 0,1.40,-.585);
+pl(cockpit,mirrorMat,.285,.07, 0,1.40,-.566);
+bx(cockpit,M.plastic2,.44,.02,.22, -.45,1.475,-.60, -.12);
+bx(cockpit,M.plastic2,.44,.02,.22,  .45,1.475,-.60, -.12);
+
+/* معلق خوشبوکنده — با پیچ فرمان تاب می‌خورد */
+const fresh=new THREE.Group();fresh.position.set(0,1.36,-.565);cockpit.add(fresh);
+cyl(fresh,new THREE.MeshBasicMaterial({color:0xd8d4c8}),.0022,.0022,.09, 0,-.045,0);
+const fTree=new THREE.Mesh(new THREE.ConeGeometry(.03,.075,5),
+  new THREE.MeshStandardMaterial({color:0x2f8f4e,roughness:.6}));
+fTree.position.y=-.125;fresh.add(fTree);
+
+/* بیرون ماشین: کاپوت، برف‌پاک‌کن، آینه‌های بغل */
+bx(exterior,M.paint,1.74,.07,1.2, 0,.92,-1.66, .05);
+bx(exterior,M.paint,1.78,.06,.12, 0,.955,-1.10, -.06);
+bx(exterior,M.plastic2,.5,.014,.03, -.5,1.005,-1.05, 0,-.35);
+bx(exterior,M.plastic2,.5,.014,.03,  .22,1.005,-1.05, 0, .35);
+bx(exterior,M.plastic2,.06,.09,.20, -1.03,1.05,-.95);
+bx(exterior,M.plastic2,.06,.09,.20,  1.03,1.05,-.95);
+bx(exterior,new THREE.MeshBasicMaterial({color:0x1c2126}),.012,.08,.16, -1.062,1.05,-.95);
+bx(exterior,new THREE.MeshBasicMaterial({color:0x1c2126}),.012,.08,.16,  1.062,1.05,-.95);
+
+/* چراغ داخلی + دوربین آینه + چشم راننده */
+const cabin=new THREE.PointLight(0xffe6c0,3,3.2,2);
+cabin.position.set(-.1,1.4,-.2);rig.add(cabin);
+const rearCam=new THREE.PerspectiveCamera(52,256/96,.5,300);
+rearCam.position.set(0,1.4,3.3);rearCam.rotation.y=Math.PI;rig.add(rearCam);
+const camRig=new THREE.Group();camRig.position.set(-.37,1.16,.02);rig.add(camRig);
+camRig.add(camera);
+
+/* ============ ماشین‌های ترافیک ============ */
+const carMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.4,metalness:.35,envMapIntensity:.7});
+const tailMat=new THREE.MeshBasicMaterial({color:0xff3524,toneMapped:false});
+const carPal=[0xc9cdd3,0x23262b,0x8e2029,0x3c5560,0x5f6b72,0xb7892c];
+const LANES=[-3.6,0,3.6];
+
+function buildCar(){
+  const c=carPal[(Math.random()*carPal.length)|0],g=[];
+  const add=(geo,hex,x=0,y=0,z=0)=>{coloredGeo(geo,hex).translate(x,y,z);g.push(geo);};
+  add(new THREE.BoxGeometry(1.86,.52,4.25),c,0,.56,0);
+  add(new THREE.BoxGeometry(1.78,.30,.9),c,0,.85,-1.55);
+  add(new THREE.BoxGeometry(1.78,.34,.55),c,0,.83,1.8);
+  add(new THREE.BoxGeometry(1.62,.5,2.1),0x1b232b,0,1.05,.15);
+  for(const sx of[-.85,.85])for(const sz of[-1.35,1.35]){
+    const w=coloredGeo(new THREE.CylinderGeometry(.34,.34,.24,12),0x141618);
+    w.rotateZ(Math.PI/2);w.translate(sx,.34,sz);g.push(w);
+  }
+  const mesh=new THREE.Mesh(mergeGeometries(g),carMat);mesh.castShadow=true;
+  const tl=new THREE.BoxGeometry(.4,.11,.06);tl.translate(-.62,.9,2.09);
+  const tr=new THREE.BoxGeometry(.4,.11,.06);tr.translate(.62,.9,2.09);
+  const tls=new THREE.Mesh(mergeGeometries([tl,tr]),tailMat);
+  const grp=new THREE.Group();grp.add(mesh);grp.add(tls);grp.visible=false;
+  scene.add(grp);return grp;
+}
+const traffic=[];for(let i=0;i<12;i++)traffic.push({grp:buildCar(),active:false,speed:20,prevZ:0});
+function spawnCar(lane,z){
+  const c=traffic.find(t=>!t.active);if(!c)return;
+  c.active=true;c.speed=rand(16.5,26);c.prevZ=z;
+  c.grp.visible=true;c.grp.position.set(LANES[lane]+rand(-.25,.25),0,z);
+}
+function spawnWave(){
+  const sn=clamp((speed-25)/41,0,1);
+  const n=Math.random()<.35+.45*sn?2:1;
+  const lanes=[0,1,2].sort(()=>Math.random()-.5);
+  for(let i=0;i<n;i++)spawnCar(lanes[i],-335-rand(0,14));
+}
+
+/* ============ صدا (Web Audio) ============ */
+let AC=null,master,engOsc1,engOsc2,engGain,engLP,windGain,noiseBuf,muted=false;
+function initAudio(){
+  if(AC)return;
+  try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+  master=AC.createGain();master.gain.value=muted?0:.85;master.connect(AC.destination);
+  engGain=AC.createGain();engGain.gain.value=0;
+  engLP=AC.createBiquadFilter();engLP.type='lowpass';engLP.frequency.value=320;engLP.Q.value=1.1;
+  engOsc1=AC.createOscillator();engOsc1.type='sawtooth';engOsc1.frequency.value=60;
+  engOsc2=AC.createOscillator();engOsc2.type='square';engOsc2.frequency.value=30;
+  const g2=AC.createGain();g2.gain.value=.55;
+  engOsc1.connect(engLP);engOsc2.connect(g2);g2.connect(engLP);
+  engLP.connect(engGain);engGain.connect(master);
+  engOsc1.start();engOsc2.start();
+  const len=2*AC.sampleRate;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);
+  const d=noiseBuf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  const src=AC.createBufferSource();src.buffer=noiseBuf;src.loop=true;
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=650;bp.Q.value=.6;
+  windGain=AC.createGain();windGain.gain.value=0;
+  src.connect(bp);bp.connect(windGain);windGain.connect(master);src.start();
+}
+function audioTick(sn,frac,running){
+  if(!AC)return;const T=AC.currentTime,f=56+frac*95+sn*26;
+  engOsc1.frequency.setTargetAtTime(f,T,.06);
+  engOsc2.frequency.setTargetAtTime(f*.5,T,.06);
+  engLP.frequency.setTargetAtTime(240+sn*1300+frac*260,T,.08);
+  engGain.gain.setTargetAtTime(running?.10+.05*sn:.05,T,.12);
+  windGain.gain.setTargetAtTime(sn*sn*.16,T,.15);
+}
+function sWhoosh(pan){
+  if(!AC)return;const T=AC.currentTime;
+  const src=AC.createBufferSource();src.buffer=noiseBuf;
+  const bp=AC.createBiquadFilter();bp.type='bandpass';bp.Q.value=1.2;
+  bp.frequency.setValueAtTime(350,T);bp.frequency.exponentialRampToValueAtTime(1900,T+.22);
+  const g=AC.createGain();g.gain.setValueAtTime(.0001,T);
+  g.gain.exponentialRampToValueAtTime(.5,T+.05);g.gain.exponentialRampToValueAtTime(.0001,T+.3);
+  src.connect(bp);bp.connect(g);
+  if(AC.createStereoPanner){const p=AC.createStereoPanner();p.pan.value=clamp(pan,-1,1);g.connect(p);p.connect(master);}
+  else g.connect(master);
+  src.start(T);src.stop(T+.35);
+}
+function sCrash(){
+  if(!AC)return;const T=AC.currentTime;
+  const src=AC.createBufferSource();src.buffer=noiseBuf;
+  const lp=AC.createBiquadFilter();lp.type='lowpass';
+  lp.frequency.setValueAtTime(900,T);lp.frequency.exponentialRampToValueAtTime(120,T+.4);
+  const g=AC.createGain();g.gain.setValueAtTime(.9,T);g.gain.exponentialRampToValueAtTime(.001,T+.55);
+  src.connect(lp);lp.connect(g);g.connect(master);src.start(T);src.stop(T+.6);
+  const o=AC.createOscillator();o.type='sawtooth';
+  o.frequency.setValueAtTime(110,T);o.frequency.exponentialRampToValueAtTime(34,T+.5);
+  const og=AC.createGain();og.gain.setValueAtTime(.5,T);og.gain.exponentialRampToValueAtTime(.001,T+.5);
+  o.connect(og);og.connect(master);o.start(T);o.stop(T+.55);
+}
+
+/* ============ ورودی ============ */
+let steerT=0,touchL=false,touchR=false,kL=false,kR=false;
+function calcSteer(){
+  let t=0;
+  if(touchL&&!touchR)t=-1;else if(touchR&&!touchL)t=1;
+  if(t===0){if(kL&&!kR)t=-1;else if(kR&&!kL)t=1;}
+  steerT=t;
+}
+addEventListener('pointerdown',e=>{
+  initAudio();
+  if(e.target.closest('button'))return;
+  if(e.clientX<innerWidth/2)touchL=true;else touchR=true;
+  calcSteer();
+});
+const clearPtr=e=>{if(e.clientX<innerWidth/2)touchL=false;else touchR=false;calcSteer();};
+addEventListener('pointerup',clearPtr);
+addEventListener('pointercancel',clearPtr);
+addEventListener('blur',()=>{touchL=touchR=kL=kR=false;calcSteer();});
+addEventListener('keydown',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){kL=true;e.preventDefault();}
+  if(e.code==='ArrowRight'||e.code==='KeyD'){kR=true;e.preventDefault();}
+  if(e.code==='Enter'&&state==='over')startRun();
+  calcSteer();
+});
+addEventListener('keyup',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA')kL=false;
+  if(e.code==='ArrowRight'||e.code==='KeyD')kR=false;
+  calcSteer();
+});
+addEventListener('contextmenu',e=>e.preventDefault());
+
+/* ============ وضعیت بازی ============ */
+let state='menu',cdT=0,cdShown='',crashT=0,shake=0,t=0;
+const player={x:0,vx:0,steer:0};
+let speed=19,runDist=0,worldDist=0,near=0,score=0,maxKmh=0,lastWave=-25,waveGap=95;
+let best=0;try{best=+localStorage.getItem('shetab_best')||0}catch(e){}
+ $('bestLine').textContent='رکورد: '+faNum(best);
+
+function resetRun(){
+  runDist=0;near=0;score=0;maxKmh=0;speed=25;
+  player.x=0;player.vx=0;player.steer=0;
+  lastWave=-25;waveGap=95;
+  traffic.forEach(c=>{c.active=false;c.grp.visible=false;});
+}
+function startRun(){
+  resetRun();state='count';cdT=0;cdShown='';
+  $('menu').classList.add('hide');$('over').classList.add('hide');
+}
+function lockScreen(){
+  const el=document.documentElement;
+  if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});
+  try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(()=>{});}catch(e){}
+}
+ $('startBtn').onclick=()=>{initAudio();lockScreen();startRun();};
+ $('againBtn').onclick=()=>{initAudio();startRun();};
+
+ $('muteBtn').onclick=()=>{
+  muted=!muted;if(master)master.gain.value=muted?0:.85;
+  const b=$('muteBtn');
+  b.querySelectorAll('.w1,.w2').forEach(p=>p.style.display=muted?'none':'');
+  b.querySelectorAll('.x1,.x2').forEach(p=>p.style.display=muted?'':'none');
+};
+
+let toastTO;
+function toast(msg){
+  const el=$('toast');el.textContent=msg;el.classList.add('show');
+  clearTimeout(toastTO);toastTO=setTimeout(()=>el.classList.remove('show'),750);
+}
+function showCount(txt){
+  const el=$('countN');el.textContent=txt;
+  el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');
+}
+function crash(){state='crash';crashT=0;shake=1;sCrash();vib(120);}
+function nearMissFn(pan){near++;toast('نزدیک بود! '+faNum(40)+'+ امتیاز');sWhoosh(pan);vib(20);}
+function showOver(){
+  score=Math.floor(runDist)+near*40;
+  if(score>best){best=score;try{localStorage.setItem('shetab_best',best)}catch(e){}
+    $('newRec').style.display='block';
+  }else $('newRec').style.display='none';
+  $('stScore').textContent=faNum(score);
+  $('stDist').textContent=faNum1(runDist/1000)+' کیلومتر';
+  $('stSpeed').textContent=faNum(Math.round(maxKmh))+' کیلومتر بر ساعت';
+  $('stNear').textContent=faNum(near)+' بار';
+  $('bestLine').textContent='رکورد: '+faNum(best);
+  $('over').classList.remove('hide');
+  state='over';
+}
+
+/* ============ رسم خوشه ابزار و نمایشگر ============ */
+function gauge(x,cx,cy,r,val,cfg){
+  x.fillStyle='#0c0f15';x.beginPath();x.arc(cx,cy,r,0,Math.PI*2);x.fill();
+  x.strokeStyle='#222935';x.lineWidth=5;x.stroke();
+  const a0=Math.PI*.75,a1=Math.PI*2.25;
+  if(cfg.red!=null){
+    x.strokeStyle='rgba(224,70,75,.95)';x.lineWidth=7;
+    x.beginPath();x.arc(cx,cy,r-7,a0+(a1-a0)*cfg.red,a1);x.stroke();
+  }
+  for(let i=0;i<cfg.majors;i++){
+    const a=a0+(a1-a0)*i/(cfg.majors-1),c=Math.cos(a),s=Math.sin(a);
+    x.strokeStyle=(cfg.red!=null&&i/(cfg.majors-1)>=cfg.red)?'#e0464b':'#c9ced6';
+    x.lineWidth=3;x.beginPath();
+    x.moveTo(cx+c*(r-13),cy+s*(r-13));x.lineTo(cx+c*(r-3),cy+s*(r-3));x.stroke();
+    x.fillStyle='#8f99a6';x.font='700 15px sans-serif';x.textAlign='center';x.textBaseline='middle';
+    x.fillText(cfg.fmt(i),cx+c*(r-27),cy+s*(r-27));
+  }
+  if(cfg.unit){x.fillStyle='#5c6673';x.font='600 12px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(cfg.unit,cx,cy+r*.55);}
+  const av=a0+(a1-a0)*clamp(val,0,1);
+  x.strokeStyle='#ffb454';x.lineWidth=5;x.lineCap='round';
+  x.beginPath();x.moveTo(cx-Math.cos(av)*16,cy-Math.sin(av)*16);
+  x.lineTo(cx+Math.cos(av)*(r-18),cy+Math.sin(av)*(r-18));x.stroke();x.lineCap='butt';
+  x.fillStyle='#070910';x.beginPath();x.arc(cx,cy,11,0,Math.PI*2);x.fill();
+  x.strokeStyle='#3a4351';x.lineWidth=2;x.stroke();
+}
+function drawCluster(kmh,rpmF,tripKm){
+  const x=cluster.ctx;
+  x.fillStyle='#04050a';x.fillRect(0,0,512,224);
+  gauge(x,140,116,86,Math.max(.08,rpmF),{majors:9,red:6.5/8,fmt:i=>String(i),unit:'×1000rpm'});
+  gauge(x,372,116,86,kmh/260,{majors:7,red:null,fmt:i=>String(i*40),unit:''});
+  x.textAlign='center';x.textBaseline='alphabetic';
+  x.fillStyle='#ffb454';x.font='800 36px Vazirmatn, sans-serif';
+  x.fillText(String(Math.round(kmh)),256,124);
+  x.fillStyle='#77808c';x.font='600 13px sans-serif';x.fillText('km/h',256,146);
+  x.textAlign='left';x.fillStyle='#aab2bd';x.font='600 17px sans-serif';
+  x.fillText(tripKm.toFixed(1)+' km',18,210);
+  x.textAlign='right';x.fillStyle='#59636f';x.font='700 14px sans-serif';
+  x.fillText('SHETAB GT',496,210);
+  cluster.tex.needsUpdate=true;
+}
+function arrowIcon(x,cx,cy,dir){
+  x.beginPath();x.moveTo(cx+dir*12,cy);x.lineTo(cx-dir*10,cy-9);x.lineTo(cx-dir*10,cy+9);
+  x.closePath();x.fill();
+}
+function drawScreen(){
+  const x=screenT.ctx;
+  x.fillStyle='#070a10';x.fillRect(0,0,288,192);
+  x.fillStyle='#11161f';x.fillRect(0,0,288,30);
+  x.textBaseline='middle';
+  x.fillStyle='#e9e3d5';x.font='700 15px Vazirmatn, sans-serif';x.textAlign='right';
+  x.fillText('پخش‌کننده موسیقی',276,16);
+  x.fillStyle='#7d8692';x.font='600 12px Vazirmatn, sans-serif';x.textAlign='left';
+  x.fillText(new Date().toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit'}),12,16);
+  x.textBaseline='alphabetic';x.textAlign='right';
+  x.fillStyle='#ccd1d9';x.font='700 16px Vazirmatn, sans-serif';
+  x.fillText('جادهٔ افق — بی‌کلام',274,58);
+  x.fillStyle='#78818d';x.font='600 12px Vazirmatn, sans-serif';
+  x.fillText('آلبوم: افق',274,78);
+  const pr=(t%44)/44;
+  x.fillStyle='#1c2330';x.fillRect(16,92,256,4);
+  x.fillStyle='#f5a524';x.fillRect(16,92,256*pr,4);
+  x.textAlign='right';
+  x.fillStyle='#6d7682';x.font='600 12px Vazirmatn, sans-serif';x.fillText('مسافت — کیلومتر',274,126);
+  x.fillStyle='#ffb454';x.font='800 26px Vazirmatn, sans-serif';x.fillText(faNum1(runDist/1000),274,154);
+  x.textAlign='left';
+  x.fillStyle='#6d7682';x.font='600 12px Vazirmatn, sans-serif';x.fillText('امتیاز',16,126);
+  x.fillStyle='#e9e3d5';x.font='800 26px Vazirmatn, sans-serif';x.fillText(faNum(score),16,154);
+  const blink=Math.floor(t*3)%2===0;
+  x.fillStyle='#37d67a';
+  if(steerT<0&&blink)arrowIcon(x,36,176,-1);
+  if(steerT>0&&blink)arrowIcon(x,252,176,1);
+  screenT.tex.needsUpdate=true;
+}
+drawCluster(0,.1,0);drawScreen();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawCluster(0,.1,0);drawScreen();});
+
+/* ============ حرکت دنیا (اسکرول بی‌پایان) ============ */
+const dummy=new THREE.Object3D();
+function wrapZ(base,span){let z=(base+worldDist)%span;if(z<0)z+=span;return z-span+22;}
+function updateInstances(){
+  for(let i=0;i<postData.length;i++){const p=postData[i];
+    dummy.position.set(6.5*p.side,.3,wrapZ(p.base,484));
+    dummy.rotation.set(0,0,0);dummy.scale.set(1,1,1);
+    dummy.updateMatrix();posts.setMatrixAt(i,dummy.matrix);}
+  posts.instanceMatrix.needsUpdate=true;
+  for(let i=0;i<treeData.length;i++){const d=treeData[i];
+    dummy.position.set(d.side*(8.3+d.off),0,wrapZ(d.base,484));
+    dummy.rotation.set(0,d.ry,0);dummy.scale.setScalar(d.s);
+    dummy.updateMatrix();trees.setMatrixAt(i,dummy.matrix);}
+  trees.instanceMatrix.needsUpdate=true;
+  for(let i=0;i<bData.length;i++){const b=bData[i];
+    dummy.position.set(b.side*(24+b.off),0,wrapZ(b.base,484));
+    dummy.rotation.set(0,0,0);dummy.scale.set(b.w,b.h,b.d);
+    dummy.updateMatrix();builds.setMatrixAt(i,dummy.matrix);}
+  builds.instanceMatrix.needsUpdate=true;
+}
+function updateTraffic(dt){
+  for(const c of traffic){
+    if(!c.active)continue;
+    const p=c.grp.position;
+    p.z+=(speed-c.speed)*dt;
+    if(p.z>22){c.active=false;c.grp.visible=false;continue;}
+    const dx=Math.abs(p.x-player.x);
+    if(state==='run'){
+      if(Math.abs(p.z)<2.3&&dx<1.5){crash();return;}
+      if(c.prevZ<0&&p.z>=0&&dx<2.35)nearMissFn((p.x-player.x)/2.5);
+    }
+    c.prevZ=p.z;
+  }
+}
+
+/* ============ حلقه به‌روزرسانی ============ */
+const GEARS=[0,55,100,150,200,255,330];
+function gearInfo(kmh){
+  let gi=0;while(gi<GEARS.length-2&&kmh>=GEARS[gi+1])gi++;
+  return{gi,f:clamp((kmh-GEARS[gi])/(GEARS[gi+1]-GEARS[gi]),0,1)};
+}
+let sway=0,swayV=0,prevVx=0,cluT=0,scrT=0;
+
+function update(dt){
+  /* وضعیت‌ها */
+  if(state==='menu'){
+    speed=damp(speed,19,1.2,dt);
+    player.steer=Math.sin(t*.5)*.35;
+  }else if(state==='count'){
+    cdT+=dt;speed=damp(speed,26,2,dt);
+    const n=cdT<1?'۳':cdT<2?'۲':cdT<3?'۱':'برو!';
+    if(n!==cdShown){cdShown=n;showCount(n);}
+    if(cdT>=3)state='run';
+  }else if(state==='run'){
+    speed=Math.min(66.2,speed+2.1*dt);
+    runDist+=speed*dt;
+    maxKmh=Math.max(maxKmh,speed*3.6);
+    player.steer=damp(player.steer,steerT,5.5,dt);
+    const sn=clamp((speed-25)/41,0,1);
+    if(runDist-lastWave>waveGap){
+      lastWave=runDist;waveGap=135-52*sn+rand(-10,14);spawnWave();
+    }
+  }else if(state==='crash'){
+    crashT+=dt;speed*=Math.exp(-2.8*dt);
+    player.steer=damp(player.steer,0,3,dt);
+    if(crashT>1.15)showOver();
+  }else{speed=damp(speed,0,2,dt);}
+
+  score=Math.floor(runDist)+near*40;
+
+  /* دینامیک جانبی نرم */
+  const sn=clamp((speed-19)/(66.2-19),0,1);
+  const canSteer=state==='run'||state==='count'||state==='menu';
+  const vxT=canSteer?player.steer*(4.2+4.6*sn):0;
+  player.vx=damp(player.vx,vxT,6,dt);
+  player.x+=player.vx*dt;
+  if(player.x>4.35){player.x=4.35;player.vx*=-.25;}
+  if(player.x<-4.35){player.x=-4.35;player.vx*=-.25;}
+
+  /* اسکرول جاده و محیط */
+  const dz=speed*dt;worldDist+=dz;
+  road.tex.offset.y=(worldDist/12)%1;
+  ground.tex.offset.y=(worldDist/17.33)%1;
+  updateInstances();
+  updateTraffic(dt);
+
+  /* بدنه، فرمان، سر راننده */
+  rig.position.x=player.x;
+  rig.rotation.y=-player.steer*.03-player.vx*.006;
+  rig.rotation.z=player.steer*.02+player.vx*.003;
+  camRig.rotation.z=-player.steer*.055;
+  camRig.rotation.y=-player.steer*.04;
+  wheelSpin.rotation.z=-player.steer*2.3;
+
+  /* لرزش ظریف موتور + لرزش برخورد */
+  const amp=.0014+sn*.004+(Math.abs(player.x)>4.6?.005:0)+shake*.09;
+  camRig.position.x=-.37+Math.sin(t*29)*amp+Math.sin(t*47)*amp*.5+(shake>0?rand(-1,1)*shake*.05:0);
+  camRig.position.y=1.16+Math.sin(t*37)*amp*.8+(shake>0?rand(-1,1)*shake*.05:0);
+  shake=Math.max(0,shake-dt*1.4);
+
+  /* فیزیک تاب خوردن معلق */
+  const aLat=(player.vx-prevVx)/Math.max(dt,1e-4);prevVx=player.vx;
+  const rest=clamp(aLat/9.81,-.7,.7);
+  swayV+=((rest-sway)*60-swayV*5)*dt;sway+=swayV*dt;
+  fresh.rotation.z=clamp(sway*.6+player.vx*.03,-.6,.6);
+
+  /* صدا */
+  const kmh=speed*3.6,gi=gearInfo(kmh);
+  audioTick(sn,gi.f,state==='run'||state==='count');
+
+  /* ترسیم داشبورد و نمایشگر */
+  cluT+=dt;if(cluT>.05){cluT=0;drawCluster(kmh,gi.f,runDist/1000);}
+  scrT+=dt;if(scrT>.16){scrT=0;drawScreen();}
+
+  /* HUD */
+  $('speedVal').textContent=faNum(Math.round(kmh));
+  $('subVal').textContent='کیلومتر: '+faNum1(runDist/1000);
+  $('scoreVal').textContent=faNum(score);
+  $('edgeL').classList.toggle('on',steerT<0);
+  $('edgeR').classList.toggle('on',steerT>0);
+
+  camera.fov=76+sn*7;camera.updateProjectionMatrix();
+  sky.position.x=rig.position.x*.9;
+}
+
+/* ============ رندر ============ */
+let frames=0,lastT=performance.now(),loaderHidden=false,perfAcc=0,perfN=0,perfDone=false;
+
+function render(){
+  frames++;
+  if(frames%2===0)renderer.shadowMap.needsUpdate=true;
+  if(frames%2===1){ // آینه داخل ماشین: هر دو فریم یک‌بار
+    cockpit.visible=false;
+    renderer.setRenderTarget(mirrorRT);
+    renderer.render(scene,rearCam);
+    renderer.setRenderTarget(null);
+    cockpit.visible=true;
+  }
+  renderer.render(scene,camera);
+}
+
+renderer.setAnimationLoop(()=>{
+  const now=performance.now();
+  const dt=Math.min(.05,(now-lastT)/1000);lastT=now;t+=dt;
+  update(dt);render();
+  if(!loaderHidden){loaderHidden=true;$('loader').classList.add('hide');}
+  /* کاهش خودکار کیفیت روی گوشی‌های ضعیف‌تر */
+  if(!perfDone){perfAcc+=dt;perfN++;
+    if(perfN>=120){perfDone=true;
+      if(perfAcc/perfN>.026)renderer.setPixelRatio(Math.min(1.25,devicePixelRatio));}}
+});
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+document.addEventListener('visibilitychange',()=>{
+  if(!AC)return;document.hidden?AC.suspend():AC.resume();
+});
+</script>
+</body>
+        </html>
